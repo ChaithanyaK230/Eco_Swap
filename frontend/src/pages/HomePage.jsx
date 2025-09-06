@@ -22,8 +22,14 @@ function HomePage() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [cart, setCart] = useState(() => {
+    const saved = localStorage.getItem("cart");
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [showSellForm, setShowSellForm] = useState(false);
   const [showWishlistView, setShowWishlistView] = useState(false);
+  const [showCartView, setShowCartView] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,6 +44,10 @@ function HomePage() {
   useEffect(() => {
     localStorage.setItem("wishlist", JSON.stringify(wishlist));
   }, [wishlist]);
+
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [cart]);
 
   const handleImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -61,7 +71,7 @@ function HomePage() {
       title,
       description,
       category,
-      price,
+      price: parseFloat(price),
       image,
     };
 
@@ -82,6 +92,24 @@ function HomePage() {
     }
   };
 
+  const handleAddToCart = (product) => {
+    const exists = cart.find((item) => item.id === product.id);
+    if (exists) {
+      setCart(
+        cart.map((item) =>
+          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
+        )
+      );
+    } else {
+      setCart([...cart, { ...product, qty: 1 }]);
+    }
+  };
+
+  const handlePayNow = () => {
+    alert("Payment Successful ✅");
+    setCart([]);
+  };
+
   const displayedProducts = showWishlistView
     ? products.filter((product) => wishlist.includes(product.id))
     : products;
@@ -93,11 +121,24 @@ function HomePage() {
         <div className="header-buttons">
           <button
             className="wishlist-btn"
-            onClick={() => setShowWishlistView(!showWishlistView)}
+            onClick={() => {
+              setShowWishlistView(!showWishlistView);
+              setShowCartView(false);
+            }}
           >
             💖 {showWishlistView ? "Back to Home" : "Wishlist"}
           </button>
-          <button className="cart-btn">🛒 Cart</button>
+
+          <button
+            className="cart-btn"
+            onClick={() => {
+              setShowCartView(!showCartView);
+              setShowWishlistView(false);
+            }}
+          >
+            🛒 Cart ({cart.reduce((total, item) => total + item.qty, 0)})
+          </button>
+
           <button
             className="sell-btn"
             onClick={() => setShowSellForm(!showSellForm)}
@@ -107,6 +148,7 @@ function HomePage() {
         </div>
       </header>
 
+      {/* Sell Form */}
       {showSellForm && (
         <form className="sell-form" onSubmit={handleSubmit}>
           <h3>New Product Listing</h3>
@@ -133,7 +175,7 @@ function HomePage() {
           </select>
           <input
             type="number"
-            placeholder="Price (₹ Indian Rupees)"
+            placeholder="Price (₹)"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             min="0"
@@ -148,39 +190,74 @@ function HomePage() {
         </form>
       )}
 
-      <div className="product-grid">
-        {displayedProducts.length === 0 ? (
-          <p style={{ textAlign: "center", marginTop: "20px" }}>
-            {showWishlistView
-              ? "No items in your wishlist."
-              : "No products listed yet. Click 'Sell' to add a product."}
-          </p>
-        ) : (
-          displayedProducts.map(
-            ({ id, title, description, category, price, image }) => (
-              <div className="product-card" key={id}>
+      {/* Cart View */}
+      {showCartView && (
+        <div className="cart-summary">
+          <h3>Order Summary</h3>
+          {cart.length === 0 ? (
+            <p>Your cart is empty.</p>
+          ) : (
+            <>
+              {cart.map((item) => (
+                <div key={item.id} className="cart-item">
+                  <img src={item.image} alt={item.title} />
+                  <div>
+                    <h4>{item.title}</h4>
+                    <p>Qty: {item.qty}</p>
+                    <p>Price: ₹{item.price * item.qty}</p>
+                  </div>
+                </div>
+              ))}
+              <h4 style={{ marginTop: "15px" }}>
+                Total: ₹
+                {cart.reduce(
+                  (total, item) => total + item.price * item.qty,
+                  0
+                )}
+              </h4>
+              <button onClick={handlePayNow} className="pay-btn">
+                Pay Now
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Product Grid */}
+      {!showCartView && (
+        <div className="product-grid">
+          {displayedProducts.length === 0 ? (
+            <p style={{ textAlign: "center" }}>
+              {showWishlistView
+                ? "No items in wishlist."
+                : "No products available."}
+            </p>
+          ) : (
+            displayedProducts.map((product) => (
+              <div className="product-card" key={product.id}>
                 <div
                   className="product-fav"
-                  onClick={() => toggleWishlist(id)}
+                  onClick={() => toggleWishlist(product.id)}
                   title="Toggle Wishlist"
                 >
-                  {wishlist.includes(id) ? "❤️" : "🤍"}
+                  {wishlist.includes(product.id) ? "❤️" : "🤍"}
                 </div>
-                <img src={image} alt={title} className="product-image" />
-                <h4>{title}</h4>
-                <p>{description}</p>
-                <p>
-                  <strong>Category:</strong> {category}
-                </p>
-                <p>
-                  <strong>Price:</strong> ₹ {price}
-                </p>
-                <button className="add-to-cart">Add to Cart</button>
+                <img src={product.image} alt={product.title} className="product-image" />
+                <h4>{product.title}</h4>
+                <p>{product.description}</p>
+                <p><strong>Category:</strong> {product.category}</p>
+                <p><strong>Price:</strong> ₹ {product.price}</p>
+                <button
+                  className="add-to-cart"
+                  onClick={() => handleAddToCart(product)}
+                >
+                  Add to Cart
+                </button>
               </div>
-            )
-          )
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
